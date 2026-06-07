@@ -1,12 +1,16 @@
 {
-  "buildCommand": "cd apps/web && npm run build",
+  "buildCommand": "cd apps/web && pnpm run build",
   "outputDirectory": "apps/web/.next",
-  "installCommand": "npm install",
+  "installCommand": "npm install -g pnpm && pnpm install",
   "framework": "nextjs",
   "rewrites": [
     {
       "source": "/api/v1/(.*)",
-      "destination": "https://YOUR_API.railway.app/api/v1/$1"
+      "destination": "https://idtrust-api.onrender.com/api/v1/$1"
     }
-  ]
+  ],
+  "env": {
+    "NEXT_PUBLIC_API_URL": "https://idtrust-api.onrender.com",
+    "NEXTAUTH_URL": "https://idtrust-hr.vercel.app"
+  }
 }
