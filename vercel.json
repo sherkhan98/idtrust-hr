@@ -11,6 +11,8 @@
   ],
   "env": {
     "NEXT_PUBLIC_API_URL": "https://idtrust-api.onrender.com",
-    "NEXTAUTH_URL": "https://idtrust-hr.vercel.app"
+    "NEXTAUTH_URL": "https://idtrust.uz",
+    "NEXT_PUBLIC_SUPABASE_URL": "https://pfguiiyzksaagprfpiyw.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_peqDlHfKQImWm_P8ltpYyA_vzGGuDwU"
   }
 }
