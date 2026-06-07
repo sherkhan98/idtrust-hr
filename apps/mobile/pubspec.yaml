@@ -1,0 +1,60 @@
+name: staffflow_hr
+description: StaffFlow HR Mobile App - Enterprise HRM for Uzbekistan
+
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  dio: ^5.4.0
+  flutter_secure_storage: ^9.0.0
+  shared_preferences: ^2.2.2
+  go_router: ^13.0.0
+  provider: ^6.1.1
+  riverpod: ^2.4.9
+  flutter_riverpod: ^2.4.9
+  camera: ^0.10.5+9
+  geolocator: ^11.0.0
+  qr_code_scanner: ^1.0.1
+  local_auth: ^2.1.8
+  image_picker: ^1.0.7
+  cached_network_image: ^3.3.1
+  intl: ^0.19.0
+  fl_chart: ^0.67.0
+  pull_to_refresh: ^2.0.0
+  badges: ^3.1.2
+  lottie: ^3.0.0
+  flutter_svg: ^2.0.9
+  permission_handler: ^11.2.0
+  connectivity_plus: ^6.0.2
+  firebase_core: ^2.27.1
+  firebase_messaging: ^14.7.20
+  flutter_local_notifications: ^17.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+  build_runner: ^2.4.7
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/icons/
+    - assets/animations/
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700

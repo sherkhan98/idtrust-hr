@@ -1,0 +1,43 @@
+{
+  "app": { "name": "StaffFlow HR", "tagline": "Modern HR System for Uzbekistan" },
+  "nav": {
+    "dashboard": "Dashboard",
+    "employees": "Employees",
+    "organization": "Organization",
+    "attendance": "Attendance",
+    "leave": "Leave",
+    "payroll": "Payroll",
+    "kpi": "KPI",
+    "recruitment": "Recruitment",
+    "tasks": "Tasks",
+    "documents": "Documents",
+    "training": "Training",
+    "social": "Social Feed",
+    "helpdesk": "Help Desk",
+    "analytics": "Analytics",
+    "settings": "Settings"
+  },
+  "common": {
+    "search": "Search...",
+    "add": "Add",
+    "edit": "Edit",
+    "delete": "Delete",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "loading": "Loading...",
+    "noData": "No data found",
+    "export": "Export",
+    "import": "Import",
+    "filter": "Filter",
+    "total": "Total",
+    "active": "Active",
+    "inactive": "Inactive",
+    "status": "Status",
+    "actions": "Actions",
+    "date": "Date",
+    "name": "Name",
+    "email": "Email",
+    "phone": "Phone"
+  }
+}

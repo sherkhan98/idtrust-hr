@@ -1,0 +1,85 @@
+{
+  "app": { "name": "StaffFlow HR", "tagline": "O'zbekiston uchun zamonaviy HR tizimi" },
+  "nav": {
+    "dashboard": "Bosh sahifa",
+    "employees": "Xodimlar",
+    "organization": "Tashkilot",
+    "attendance": "Davomat",
+    "leave": "Ta'tillar",
+    "payroll": "Maosh",
+    "kpi": "KPI",
+    "recruitment": "Ishga qabul",
+    "tasks": "Vazifalar",
+    "documents": "Hujjatlar",
+    "training": "Ta'lim",
+    "social": "Yangiliklar",
+    "helpdesk": "Yordam",
+    "analytics": "Tahlil",
+    "settings": "Sozlamalar"
+  },
+  "common": {
+    "search": "Qidirish...",
+    "add": "Qo'shish",
+    "edit": "Tahrirlash",
+    "delete": "O'chirish",
+    "save": "Saqlash",
+    "cancel": "Bekor qilish",
+    "confirm": "Tasdiqlash",
+    "loading": "Yuklanmoqda...",
+    "noData": "Ma'lumot topilmadi",
+    "export": "Eksport",
+    "import": "Import",
+    "filter": "Filter",
+    "total": "Jami",
+    "active": "Faol",
+    "inactive": "Nofaol",
+    "status": "Holat",
+    "actions": "Amallar",
+    "date": "Sana",
+    "name": "Ism",
+    "email": "Email",
+    "phone": "Telefon"
+  },
+  "employee": {
+    "title": "Xodimlar",
+    "add": "Xodim qo'shish",
+    "profile": "Profil",
+    "department": "Bo'lim",
+    "position": "Lavozim",
+    "hireDate": "Ishga qabul sanasi",
+    "salary": "Maosh",
+    "status": {
+      "ACTIVE": "Faol",
+      "ON_LEAVE": "Ta'tilda",
+      "RESIGNED": "Iste'fo bergan",
+      "TERMINATED": "Ishdan bo'shatilgan"
+    }
+  },
+  "attendance": {
+    "title": "Davomat",
+    "checkIn": "Kelish",
+    "checkOut": "Ketish",
+    "present": "Keldi",
+    "absent": "Kelmadi",
+    "late": "Kechikdi",
+    "onLeave": "Ta'tilda"
+  },
+  "leave": {
+    "title": "Ta'tillar",
+    "apply": "Ta'til so'rash",
+    "annual": "Yillik ta'til",
+    "sick": "Kasallik ta'tili",
+    "business": "Xizmat safari",
+    "approved": "Tasdiqlandi",
+    "pending": "Kutilmoqda",
+    "rejected": "Rad etildi"
+  },
+  "payroll": {
+    "title": "Maosh",
+    "gross": "Yalpi maosh",
+    "net": "Sof maosh",
+    "tax": "Soliq",
+    "bonus": "Mukofot",
+    "penalty": "Jarima"
+  }
+}

@@ -1,0 +1,2248 @@
+// =============================================================================
+// StaffFlow HR - Complete Prisma Schema
+// Multi-tenant Enterprise HRM System
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// =============================================================================
+// MULTI-TENANCY
+// =============================================================================
+
+model Tenant {
+  id            String          @id @default(cuid())
+  name          String
+  slug          String          @unique
+  domain        String?         @unique
+  logo          String?
+  plan          SubscriptionPlan @default(STARTER)
+  status        TenantStatus    @default(ACTIVE)
+  settings      Json            @default("{}")
+  maxEmployees  Int             @default(50)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  users         User[]
+  employees     Employee[]
+  departments   Department[]
+  branches      Branch[]
+  positions     Position[]
+  attendances   Attendance[]
+  leaves        Leave[]
+  payrolls      Payroll[]
+  kpis          KPI[]
+  vacancies     Vacancy[]
+  tasks         Task[]
+  documents     Document[]
+  posts         Post[]
+  courses       Course[]
+  tickets       Ticket[]
+  notifications Notification[]
+  auditLogs             AuditLog[]
+  integrations          Integration[]
+  attendanceConfig      AttendanceConfig?
+  biometricDevices      BiometricDevice[]
+  nfcCards              NfcCard[]
+  geoFences             GeoFence[]
+  onboardingTemplates   OnboardingTemplate[]
+  onboardingWorkflows   OnboardingWorkflow[]
+  automationRules       AutomationRule[]
+  notificationChannel   NotificationChannel?
+  subscription          Subscription?
+  shifts            Shift[]
+  leaveTypes        LeaveType[]
+  payrollPeriods    PayrollPeriod[]
+  esignDocuments    EsignDocument[]
+  esignTemplates    EsignTemplate[]
+  customWorkflows   CustomWorkflow[]
+  workflowInstances WorkflowInstance[]
+
+  @@map("tenants")
+}
+
+model Subscription {
+  id          String           @id @default(cuid())
+  tenantId    String           @unique
+  tenant      Tenant           @relation(fields: [tenantId], references: [id])
+  plan        SubscriptionPlan
+  status      SubStatus        @default(ACTIVE)
+  startsAt    DateTime
+  expiresAt   DateTime
+  amount      Decimal          @db.Decimal(10, 2)
+  currency    String           @default("UZS")
+  stripeId    String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@map("subscriptions")
+}
+
+// =============================================================================
+// USERS & AUTH
+// =============================================================================
+
+model User {
+  id              String      @id @default(cuid())
+  tenantId        String?
+  tenant          Tenant?     @relation(fields: [tenantId], references: [id])
+  email           String      @unique
+  phone           String?
+  passwordHash    String
+  firstName       String
+  lastName        String
+  avatar          String?
+  role            UserRole    @default(EMPLOYEE)
+  status          UserStatus  @default(ACTIVE)
+  mfaEnabled      Boolean     @default(false)
+  mfaSecret       String?
+  lastLoginAt     DateTime?
+  lastLoginIp     String?
+  telegramChatId    String?
+  refreshTokens     RefreshToken[]
+  employee          Employee?
+  assignedTasks     OnboardingTask[]
+  auditLogs         AuditLog[]        @relation("UserAuditLogs")
+  createdDocuments  EsignDocument[]   @relation("CreatedDocuments")
+  signatories       EsignSignatory[]  @relation("UserSignatories")
+  createdWorkflows  CustomWorkflow[]  @relation("CreatedWorkflows")
+  triggeredInstances WorkflowInstance[] @relation("TriggeredInstances")
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([tenantId])
+  @@index([email])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  userAgent String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// =============================================================================
+// ORGANIZATION STRUCTURE
+// =============================================================================
+
+model Branch {
+  id          String     @id @default(cuid())
+  tenantId    String
+  tenant      Tenant     @relation(fields: [tenantId], references: [id])
+  name        String
+  nameRu      String?
+  nameUz      String?
+  code        String?
+  address     String?
+  city        String?
+  phone       String?
+  managerId   String?
+  manager     Employee?  @relation("BranchManager", fields: [managerId], references: [id])
+  employees   Employee[]
+  status      Status     @default(ACTIVE)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([tenantId])
+  @@map("branches")
+}
+
+model Department {
+  id          String       @id @default(cuid())
+  tenantId    String
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  name        String
+  nameRu      String?
+  nameUz      String?
+  code        String?
+  description String?
+  parentId    String?
+  parent      Department?  @relation("DepartmentHierarchy", fields: [parentId], references: [id])
+  children    Department[] @relation("DepartmentHierarchy")
+  managerId   String?
+  manager     Employee?    @relation("DeptManager", fields: [managerId], references: [id])
+  employees   Employee[]
+  positions   Position[]
+  status      Status       @default(ACTIVE)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([tenantId])
+  @@map("departments")
+}
+
+model Position {
+  id           String     @id @default(cuid())
+  tenantId     String
+  tenant       Tenant     @relation(fields: [tenantId], references: [id])
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  name         String
+  nameRu       String?
+  nameUz       String?
+  code         String?
+  description  String?
+  minSalary    Decimal?   @db.Decimal(15, 2)
+  maxSalary    Decimal?   @db.Decimal(15, 2)
+  status       Status     @default(ACTIVE)
+  employees    Employee[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([tenantId])
+  @@map("positions")
+}
+
+// =============================================================================
+// EMPLOYEE MANAGEMENT
+// =============================================================================
+
+model Employee {
+  id               String          @id @default(cuid())
+  tenantId         String
+  tenant           Tenant          @relation(fields: [tenantId], references: [id])
+  userId           String?         @unique
+  user             User?           @relation(fields: [userId], references: [id])
+  employeeCode     String
+  branchId         String?
+  branch           Branch?         @relation(fields: [branchId], references: [id])
+  departmentId     String?
+  department       Department?     @relation(fields: [departmentId], references: [id])
+  positionId       String?
+  position         Position?       @relation(fields: [positionId], references: [id])
+  managerId        String?
+  manager          Employee?       @relation("EmployeeHierarchy", fields: [managerId], references: [id])
+  subordinates     Employee[]      @relation("EmployeeHierarchy")
+
+  // Personal Info
+  firstName        String
+  lastName         String
+  middleName       String?
+  firstNameRu      String?
+  lastNameRu       String?
+  dateOfBirth      DateTime?
+  gender           Gender?
+  nationality      String?
+  photo            String?
+
+  // Contact
+  phone            String?
+  email            String?
+  address          String?
+  city             String?
+  region           String?
+
+  // Passport
+  passportSeries   String?
+  passportNumber   String?
+  passportIssuedBy String?
+  passportIssuedAt DateTime?
+  passportExpiry   DateTime?
+  pinfl            String?         // Uzbek personal ID
+
+  // Employment
+  hireDate         DateTime
+  contractType     ContractType    @default(PERMANENT)
+  contractEndDate  DateTime?
+  probationEndDate DateTime?
+  workType         WorkType        @default(FULL_TIME)
+  status           EmployeeStatus  @default(ACTIVE)
+  resignDate       DateTime?
+  resignReason     String?
+
+  // Salary
+  baseSalary       Decimal         @db.Decimal(15, 2) @default(0)
+  currency         String          @default("UZS")
+  salaryType       SalaryType      @default(MONTHLY)
+
+  // Face Recognition
+  faceEmbedding    String?
+
+  // Social
+  telegramUsername String?
+
+  attendances      Attendance[]
+  leaves           Leave[]
+  payrolls         EmployeePayroll[]
+  kpiScores        KPIScore[]
+  tasks            TaskAssignee[]
+  documents        Document[]
+  trainings        CourseEnrollment[]
+  tickets          Ticket[]
+  postLikes        PostLike[]
+  recognitions     EmployeeRecognition[] @relation("RecognizedEmployee")
+  givenRecognitions EmployeeRecognition[] @relation("RecognizedBy")
+  managedBranches      Branch[]             @relation("BranchManager")
+  managedDepts         Department[]         @relation("DeptManager")
+  nfcCards             NfcCard[]
+  onboardingWorkflows  OnboardingWorkflow[]
+  createdAt            DateTime             @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@unique([tenantId, employeeCode])
+  @@index([tenantId])
+  @@index([departmentId])
+  @@map("employees")
+}
+
+// =============================================================================
+// SHIFTS & ATTENDANCE
+// =============================================================================
+
+model Shift {
+  id           String       @id @default(cuid())
+  tenantId     String
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+  name         String
+  startTime    String       // "09:00"
+  endTime      String       // "18:00"
+  breakMinutes Int          @default(60)
+  workDays     Int[]        // [1,2,3,4,5] = Mon-Fri
+  isFlexible   Boolean      @default(false)
+  lateGraceMins Int         @default(15)
+  overtimeAfterMins Int     @default(0)
+  status       Status       @default(ACTIVE)
+  attendances  Attendance[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([tenantId])
+  @@map("shifts")
+}
+
+model Attendance {
+  id             String           @id @default(cuid())
+  tenantId       String
+  tenant         Tenant           @relation(fields: [tenantId], references: [id])
+  employeeId     String
+  employee       Employee         @relation(fields: [employeeId], references: [id])
+  shiftId        String?
+  shift          Shift?           @relation(fields: [shiftId], references: [id])
+  date           DateTime         @db.Date
+  checkIn        DateTime?
+  checkOut       DateTime?
+  checkInMethod  AttendanceMethod @default(MANUAL)
+  checkOutMethod AttendanceMethod @default(MANUAL)
+  checkInLat     Decimal?         @db.Decimal(10, 8)
+  checkInLng     Decimal?         @db.Decimal(11, 8)
+  checkOutLat    Decimal?         @db.Decimal(10, 8)
+  checkOutLng    Decimal?         @db.Decimal(11, 8)
+  checkInPhoto   String?
+  checkOutPhoto  String?
+  workMinutes    Int?
+  overtimeMinutes Int?
+  lateMinutes    Int?
+  earlyLeaveMinutes Int?
+  status         AttendanceStatus @default(PRESENT)
+  note           String?
+  approvedBy     String?
+  approvedAt     DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@unique([employeeId, date])
+  @@index([tenantId])
+  @@index([employeeId])
+  @@index([date])
+  @@map("attendances")
+}
+
+model AttendanceConfig {
+  id                String   @id @default(cuid())
+  tenantId          String   @unique
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  enabledMethods    String[]
+  faceIdLiveness    Boolean  @default(true)
+  faceIdAntiSpoof   Boolean  @default(true)
+  faceIdPhoto       Boolean  @default(true)
+  qrTimeLimit       Int      @default(30)
+  qrGpsVerify       Boolean  @default(true)
+  mobilePhoto       Boolean  @default(true)
+  mobileGps         Boolean  @default(true)
+  allowedIps        String[]
+  allowedSsids      String[]
+  workStart         String   @default("09:00")
+  workEnd           String   @default("18:00")
+  lateToleranceMin  Int      @default(10)
+  earlyLeaveMin     Int      @default(15)
+  minWorkHours      Int      @default(8)
+  breakMinutes      Int      @default(60)
+  otMultiplierDay   Decimal  @default(1.5) @db.Decimal(4, 2)
+  otMultiplierHoliday Decimal @default(2.0) @db.Decimal(4, 2)
+  otMinMinutes      Int      @default(30)
+  storePhotos       Boolean  @default(true)
+  storeGps          Boolean  @default(true)
+  storeDeviceInfo   Boolean  @default(true)
+  storeWifi         Boolean  @default(false)
+  anomalyAlert      Boolean  @default(true)
+  auditRetentionDays Int     @default(365)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("attendance_configs")
+}
+
+model BiometricDevice {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  brand     String
+  ipAddress String
+  port      Int      @default(4370)
+  location  String?
+  isOnline  Boolean  @default(false)
+  lastPing  DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("biometric_devices")
+}
+
+model NfcCard {
+  id           String    @id @default(cuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  cardNumber   String
+  employeeId   String?
+  employee     Employee? @relation(fields: [employeeId], references: [id])
+  isActive     Boolean   @default(true)
+  isLost       Boolean   @default(false)
+  assignedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([tenantId, cardNumber])
+  @@index([tenantId])
+  @@map("nfc_cards")
+}
+
+model GeoFence {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  type      String   @default("circle")
+  latitude  Decimal  @db.Decimal(10, 8)
+  longitude Decimal  @db.Decimal(11, 8)
+  radius    Int      @default(150)
+  branch    String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("geo_fences")
+}
+
+// =============================================================================
+// LEAVE MANAGEMENT
+// =============================================================================
+
+model LeaveType {
+  id            String    @id @default(cuid())
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+  name          String
+  nameRu        String?
+  nameUz        String?
+  code          String
+  daysPerYear   Int       @default(0)
+  isPaid        Boolean   @default(true)
+  requiresDocs  Boolean   @default(false)
+  color         String    @default("#3B82F6")
+  status        Status    @default(ACTIVE)
+  leaves        Leave[]
+  createdAt     DateTime  @default(now())
+
+  @@unique([tenantId, code])
+  @@map("leave_types")
+}
+
+model Leave {
+  id           String       @id @default(cuid())
+  tenantId     String
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+  employeeId   String
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+  leaveTypeId  String
+  leaveType    LeaveType    @relation(fields: [leaveTypeId], references: [id])
+  startDate    DateTime     @db.Date
+  endDate      DateTime     @db.Date
+  days         Int
+  reason       String?
+  status       LeaveStatus  @default(PENDING)
+  approvedById String?
+  approvedAt   DateTime?
+  rejectedReason String?
+  attachments  String[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([tenantId])
+  @@index([employeeId])
+  @@map("leaves")
+}
+
+// =============================================================================
+// PAYROLL
+// =============================================================================
+
+model PayrollPeriod {
+  id          String        @id @default(cuid())
+  tenantId    String
+  tenant      Tenant        @relation(fields: [tenantId], references: [id])
+  name        String
+  startDate   DateTime      @db.Date
+  endDate     DateTime      @db.Date
+  status      PeriodStatus  @default(DRAFT)
+  processedAt DateTime?
+  processedBy String?
+  payrolls    EmployeePayroll[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([tenantId])
+  @@map("payroll_periods")
+}
+
+model Payroll {
+  id          String    @id @default(cuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  employeeId  String?
+  month       Int
+  year        Int
+  createdAt   DateTime  @default(now())
+
+  @@index([tenantId])
+  @@map("payrolls")
+}
+
+model EmployeePayroll {
+  id              String        @id @default(cuid())
+  periodId        String
+  period          PayrollPeriod @relation(fields: [periodId], references: [id])
+  employeeId      String
+  employee        Employee      @relation(fields: [employeeId], references: [id])
+  baseSalary      Decimal       @db.Decimal(15, 2)
+  workDays        Int
+  workedDays      Int
+  overtimeHours   Decimal       @db.Decimal(8, 2) @default(0)
+  overtimePay     Decimal       @db.Decimal(15, 2) @default(0)
+  bonuses         Decimal       @db.Decimal(15, 2) @default(0)
+  penalties       Decimal       @db.Decimal(15, 2) @default(0)
+  grossSalary     Decimal       @db.Decimal(15, 2)
+  incomeTax       Decimal       @db.Decimal(15, 2)   // 12% in Uzbekistan
+  socialTax       Decimal       @db.Decimal(15, 2)   // Employer ~25%
+  pensionFund     Decimal       @db.Decimal(15, 2)   // Employee ~8%
+  netSalary       Decimal       @db.Decimal(15, 2)
+  currency        String        @default("UZS")
+  status          PayStatus     @default(PENDING)
+  paidAt          DateTime?
+  bankAccount     String?
+  note            String?
+  bonusItems      Json          @default("[]")
+  penaltyItems    Json          @default("[]")
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([periodId, employeeId])
+  @@index([employeeId])
+  @@map("employee_payrolls")
+}
+
+// =============================================================================
+// KPI SYSTEM
+// =============================================================================
+
+model KPI {
+  id           String      @id @default(cuid())
+  tenantId     String
+  tenant       Tenant      @relation(fields: [tenantId], references: [id])
+  name         String
+  nameRu       String?
+  nameUz       String?
+  description  String?
+  unit         String?     // %, count, UZS, etc.
+  targetValue  Decimal     @db.Decimal(15, 2)
+  minValue     Decimal?    @db.Decimal(15, 2)
+  maxValue     Decimal?    @db.Decimal(15, 2)
+  weight       Int         @default(100)
+  period       KPIPeriod   @default(MONTHLY)
+  category     String?
+  status       Status      @default(ACTIVE)
+  scores       KPIScore[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([tenantId])
+  @@map("kpis")
+}
+
+model KPIScore {
+  id           String    @id @default(cuid())
+  kpiId        String
+  kpi          KPI       @relation(fields: [kpiId], references: [id])
+  employeeId   String
+  employee     Employee  @relation(fields: [employeeId], references: [id])
+  period       String    // "2024-01", "2024-Q1"
+  actualValue  Decimal   @db.Decimal(15, 2)
+  score        Decimal   @db.Decimal(5, 2)  // 0-100
+  note         String?
+  measuredAt   DateTime
+  measuredBy   String?
+  createdAt    DateTime  @default(now())
+
+  @@unique([kpiId, employeeId, period])
+  @@index([employeeId])
+  @@map("kpi_scores")
+}
+
+// =============================================================================
+// RECRUITMENT (ATS)
+// =============================================================================
+
+model Vacancy {
+  id             String          @id @default(cuid())
+  tenantId       String
+  tenant         Tenant          @relation(fields: [tenantId], references: [id])
+  title          String
+  departmentId   String?
+  positionId     String?
+  description    String?
+  requirements   String?
+  salary         String?
+  type           VacancyType     @default(FULL_TIME)
+  location       String?
+  remote         Boolean         @default(false)
+  status         VacancyStatus   @default(DRAFT)
+  publishedAt    DateTime?
+  deadline       DateTime?
+  candidates     Candidate[]
+  createdById    String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([tenantId])
+  @@map("vacancies")
+}
+
+model Candidate {
+  id             String           @id @default(cuid())
+  vacancyId      String
+  vacancy        Vacancy          @relation(fields: [vacancyId], references: [id])
+  firstName      String
+  lastName       String
+  email          String?
+  phone          String?
+  resumeUrl      String?
+  linkedIn       String?
+  source         String?
+  stage          RecruitmentStage @default(NEW)
+  rating         Int?             // 1-5
+  notes          String?
+  expectedSalary Decimal?         @db.Decimal(15, 2)
+  interviews     Interview[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@map("candidates")
+}
+
+model Interview {
+  id           String          @id @default(cuid())
+  candidateId  String
+  candidate    Candidate       @relation(fields: [candidateId], references: [id])
+  type         InterviewType   @default(HR)
+  scheduledAt  DateTime
+  duration     Int             @default(60)
+  interviewers String[]
+  location     String?
+  videoLink    String?
+  status       InterviewStatus @default(SCHEDULED)
+  rating       Int?
+  feedback     String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@map("interviews")
+}
+
+// =============================================================================
+// TASK MANAGEMENT
+// =============================================================================
+
+model Project {
+  id          String        @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  status      ProjectStatus @default(ACTIVE)
+  startDate   DateTime?
+  endDate     DateTime?
+  managerId   String?
+  tasks       Task[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([tenantId])
+  @@map("projects")
+}
+
+model Task {
+  id           String         @id @default(cuid())
+  tenantId     String
+  tenant       Tenant         @relation(fields: [tenantId], references: [id])
+  projectId    String?
+  project      Project?       @relation(fields: [projectId], references: [id])
+  parentId     String?
+  parent       Task?          @relation("TaskHierarchy", fields: [parentId], references: [id])
+  subtasks     Task[]         @relation("TaskHierarchy")
+  title        String
+  description  String?
+  priority     TaskPriority   @default(MEDIUM)
+  status       TaskStatus     @default(TODO)
+  dueDate      DateTime?
+  completedAt  DateTime?
+  estimatedHrs Decimal?       @db.Decimal(8, 2)
+  actualHrs    Decimal?       @db.Decimal(8, 2)
+  createdById  String?
+  assignees    TaskAssignee[]
+  attachments  String[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([tenantId])
+  @@map("tasks")
+}
+
+model TaskAssignee {
+  id         String   @id @default(cuid())
+  taskId     String
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+
+  @@unique([taskId, employeeId])
+  @@map("task_assignees")
+}
+
+// =============================================================================
+// DOCUMENT MANAGEMENT
+// =============================================================================
+
+model Document {
+  id           String       @id @default(cuid())
+  tenantId     String
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+  employeeId   String?
+  employee     Employee?    @relation(fields: [employeeId], references: [id])
+  type         DocumentType @default(OTHER)
+  title        String
+  description  String?
+  fileUrl      String
+  fileSize     Int?
+  mimeType     String?
+  version      Int          @default(1)
+  status       DocStatus    @default(ACTIVE)
+  signedAt     DateTime?
+  signedBy     String[]
+  expiresAt    DateTime?
+  tags         String[]
+  createdById  String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([tenantId])
+  @@index([employeeId])
+  @@map("documents")
+}
+
+// =============================================================================
+// SOCIAL FEED / ANNOUNCEMENTS
+// =============================================================================
+
+model Post {
+  id           String              @id @default(cuid())
+  tenantId     String
+  tenant       Tenant              @relation(fields: [tenantId], references: [id])
+  authorId     String
+  content      String
+  attachments  String[]
+  type         PostType            @default(GENERAL)
+  pinned       Boolean             @default(false)
+  status       Status              @default(ACTIVE)
+  likes        PostLike[]
+  comments     PostComment[]
+  recognitions EmployeeRecognition[]
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@index([tenantId])
+  @@map("posts")
+}
+
+model PostLike {
+  id         String   @id @default(cuid())
+  postId     String
+  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  createdAt  DateTime @default(now())
+
+  @@unique([postId, employeeId])
+  @@map("post_likes")
+}
+
+model PostComment {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("post_comments")
+}
+
+model EmployeeRecognition {
+  id              String   @id @default(cuid())
+  postId          String?
+  post            Post?    @relation(fields: [postId], references: [id])
+  employeeId      String
+  employee        Employee @relation("RecognizedEmployee", fields: [employeeId], references: [id])
+  recognizedById  String
+  recognizedBy    Employee @relation("RecognizedBy", fields: [recognizedById], references: [id])
+  message         String
+  badge           String?
+  createdAt       DateTime @default(now())
+
+  @@map("employee_recognitions")
+}
+
+// =============================================================================
+// LMS (LEARNING MANAGEMENT SYSTEM)
+// =============================================================================
+
+model Course {
+  id            String             @id @default(cuid())
+  tenantId      String
+  tenant        Tenant             @relation(fields: [tenantId], references: [id])
+  title         String
+  description   String?
+  thumbnail     String?
+  instructorId  String?
+  duration      Int?               // minutes
+  level         CourseLevel        @default(BEGINNER)
+  mandatory     Boolean            @default(false)
+  status        Status             @default(ACTIVE)
+  lessons       Lesson[]
+  enrollments   CourseEnrollment[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([tenantId])
+  @@map("courses")
+}
+
+model Lesson {
+  id          String     @id @default(cuid())
+  courseId    String
+  course      Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title       String
+  content     String?
+  videoUrl    String?
+  duration    Int?
+  order       Int
+  type        LessonType @default(VIDEO)
+  createdAt   DateTime   @default(now())
+
+  @@map("lessons")
+}
+
+model CourseEnrollment {
+  id            String           @id @default(cuid())
+  courseId      String
+  course        Course           @relation(fields: [courseId], references: [id])
+  employeeId    String
+  employee      Employee         @relation(fields: [employeeId], references: [id])
+  status        EnrollmentStatus @default(ENROLLED)
+  progress      Int              @default(0)
+  score         Decimal?         @db.Decimal(5, 2)
+  completedAt   DateTime?
+  certificate   String?
+  enrolledAt    DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@unique([courseId, employeeId])
+  @@map("course_enrollments")
+}
+
+// =============================================================================
+// HELP DESK
+// =============================================================================
+
+model Ticket {
+  id           String         @id @default(cuid())
+  tenantId     String
+  tenant       Tenant         @relation(fields: [tenantId], references: [id])
+  employeeId   String
+  employee     Employee       @relation(fields: [employeeId], references: [id])
+  title        String
+  description  String
+  category     TicketCategory @default(HR)
+  priority     TicketPriority @default(MEDIUM)
+  status       TicketStatus   @default(OPEN)
+  assignedTo   String?
+  resolvedAt   DateTime?
+  comments     TicketComment[]
+  attachments  String[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([tenantId])
+  @@map("tickets")
+}
+
+model TicketComment {
+  id        String   @id @default(cuid())
+  ticketId  String
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId  String
+  content   String
+  internal  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("ticket_comments")
+}
+
+// =============================================================================
+// NOTIFICATIONS
+// =============================================================================
+
+model Notification {
+  id         String           @id @default(cuid())
+  tenantId   String
+  tenant     Tenant           @relation(fields: [tenantId], references: [id])
+  userId     String
+  type       NotificationType
+  title      String
+  body       String
+  data       Json?
+  channel    NotifChannel     @default(IN_APP)
+  status     NotifStatus      @default(PENDING)
+  readAt     DateTime?
+  sentAt     DateTime?
+  createdAt  DateTime         @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
+  @@map("notifications")
+}
+
+// =============================================================================
+// AUDIT LOGS
+// =============================================================================
+
+model AuditLog {
+  id         String    @id @default(cuid())
+  tenantId   String
+  tenant     Tenant    @relation(fields: [tenantId], references: [id])
+  userId     String?
+  user       User?     @relation("UserAuditLogs", fields: [userId], references: [id])
+  userEmail  String?
+  action     String
+  resource   String?
+  resourceId String?
+  oldValues  Json?
+  newValues  Json?
+  metadata   Json      @default("{}")
+  ipAddress  String?
+  userAgent  String?
+  riskLevel  String    @default("LOW")
+  status     String    @default("NEW")
+  createdAt  DateTime  @default(now())
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([tenantId, riskLevel])
+  @@map("audit_logs")
+}
+
+model Integration {
+  id           String                @id @default(cuid())
+  tenantId     String
+  tenant       Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  type         IntegrationType
+  name         String
+  isActive     Boolean               @default(false)
+  config       Json
+  lastSyncAt   DateTime?
+  syncStatus   IntegrationSyncStatus @default(IDLE)
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  logs         IntegrationLog[]
+
+  @@unique([tenantId, type])
+  @@index([tenantId])
+  @@map("integrations")
+}
+
+model IntegrationLog {
+  id            String      @id @default(cuid())
+  integrationId String
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  tenantId      String
+  syncType      String
+  status        String
+  recordsSynced Int         @default(0)
+  recordsFailed Int         @default(0)
+  errorMessage  String?
+  details       Json?
+  startedAt     DateTime
+  completedAt   DateTime?
+  createdAt     DateTime    @default(now())
+
+  @@index([integrationId])
+  @@index([tenantId])
+  @@map("integration_logs")
+}
+
+// =============================================================================
+// ONBOARDING / OFFBOARDING
+// =============================================================================
+
+model OnboardingTemplate {
+  id         String               @id @default(cuid())
+  tenantId   String
+  tenant     Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name       String
+  type       OnboardingType
+  department String?
+  tasks      OnboardingTaskTemplate[]
+  workflows  OnboardingWorkflow[]
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+
+  @@index([tenantId])
+  @@map("onboarding_templates")
+}
+
+model OnboardingTaskTemplate {
+  id             String             @id @default(cuid())
+  templateId     String
+  template       OnboardingTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  title          String
+  description    String?
+  category       OnboardingTaskCategory
+  assignedRole   String
+  dueOffsetDays  Int                @default(0)
+  required       Boolean            @default(true)
+  order          Int                @default(0)
+
+  @@index([templateId])
+  @@map("onboarding_task_templates")
+}
+
+model OnboardingWorkflow {
+  id           String             @id @default(cuid())
+  tenantId     String
+  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  templateId   String?
+  template     OnboardingTemplate? @relation(fields: [templateId], references: [id])
+  employeeId   String
+  employee     Employee           @relation(fields: [employeeId], references: [id])
+  type         OnboardingType
+  startDate    DateTime
+  targetDate   DateTime?
+  completedAt  DateTime?
+  tasks        OnboardingTask[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([tenantId])
+  @@index([employeeId])
+  @@map("onboarding_workflows")
+}
+
+model OnboardingTask {
+  id           String             @id @default(cuid())
+  workflowId   String
+  workflow     OnboardingWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  category     OnboardingTaskCategory
+  assignedRole String
+  assignedToId String?
+  assignedTo   User?              @relation(fields: [assignedToId], references: [id])
+  dueDate      DateTime?
+  status       OnboardingTaskStatus @default(PENDING)
+  completedAt  DateTime?
+  note         String?
+
+  @@index([workflowId])
+  @@map("onboarding_tasks")
+}
+
+// =============================================================================
+// AUTOMATION ENGINE
+// =============================================================================
+
+model AutomationRule {
+  id              String          @id @default(cuid())
+  tenantId        String
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name            String
+  trigger         AutomationTrigger
+  triggerConfig   Json
+  actions         String[]
+  recipientRoles  String[]
+  isActive        Boolean         @default(true)
+  executionCount  Int             @default(0)
+  lastRunAt       DateTime?
+  logs            AutomationLog[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([tenantId])
+  @@map("automation_rules")
+}
+
+model AutomationLog {
+  id           String         @id @default(cuid())
+  ruleId       String
+  rule         AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  tenantId     String
+  employeeId   String?
+  action       String
+  success      Boolean
+  errorMessage String?
+  payload      Json?
+  createdAt    DateTime       @default(now())
+
+  @@index([ruleId])
+  @@index([tenantId])
+  @@map("automation_logs")
+}
+
+model NotificationChannel {
+  id        String          @id @default(cuid())
+  tenantId  String          @unique
+  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  telegram  Json?
+  email     Json?
+  sms       Json?
+  inApp     Json?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@map("notification_channels")
+}
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+enum SubscriptionPlan {
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+  CUSTOM
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+}
+
+enum SubStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  TRIALING
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  TENANT_ADMIN
+  HR_MANAGER
+  MANAGER
+  EMPLOYEE
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum Status {
+  ACTIVE
+  INACTIVE
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum ContractType {
+  PERMANENT
+  CONTRACT
+  PART_TIME
+  INTERN
+  PROBATION
+}
+
+enum WorkType {
+  FULL_TIME
+  PART_TIME
+  REMOTE
+  HYBRID
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  ON_LEAVE
+  SUSPENDED
+  RESIGNED
+  TERMINATED
+}
+
+enum SalaryType {
+  MONTHLY
+  DAILY
+  HOURLY
+}
+
+enum AttendanceMethod {
+  MANUAL
+  FACE
+  QR
+  NFC
+  GPS
+  WIFI
+  MOBILE
+  FINGERPRINT
+  IP
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  HALF_DAY
+  ON_LEAVE
+  HOLIDAY
+  WEEKEND
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum PeriodStatus {
+  DRAFT
+  PROCESSING
+  COMPLETED
+  CANCELLED
+}
+
+enum PayStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+enum KPIPeriod {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum VacancyType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERNSHIP
+}
+
+enum VacancyStatus {
+  DRAFT
+  PUBLISHED
+  ON_HOLD
+  CLOSED
+  FILLED
+}
+
+enum RecruitmentStage {
+  NEW
+  SCREENING
+  INTERVIEW_1
+  INTERVIEW_2
+  TEST
+  OFFER
+  HIRED
+  REJECTED
+}
+
+enum InterviewType {
+  HR
+  TECHNICAL
+  FINAL
+  VIDEO
+}
+
+enum InterviewStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+  CANCELLED
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum DocumentType {
+  CONTRACT
+  ORDER
+  CERTIFICATE
+  ID_COPY
+  PHOTO
+  OTHER
+}
+
+enum DocStatus {
+  ACTIVE
+  EXPIRED
+  ARCHIVED
+}
+
+enum PostType {
+  GENERAL
+  ANNOUNCEMENT
+  RECOGNITION
+  POLL
+  EVENT
+}
+
+enum CourseLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum LessonType {
+  VIDEO
+  ARTICLE
+  QUIZ
+  ASSIGNMENT
+}
+
+enum EnrollmentStatus {
+  ENROLLED
+  IN_PROGRESS
+  COMPLETED
+  DROPPED
+}
+
+enum TicketCategory {
+  IT
+  HR
+  FINANCE
+  FACILITIES
+  OTHER
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum IntegrationType {
+  ONEC
+  UZASBO
+  BITRIX24
+}
+
+enum IntegrationSyncStatus {
+  IDLE
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+enum OnboardingType {
+  ONBOARDING
+  OFFBOARDING
+}
+
+enum OnboardingTaskCategory {
+  DOCUMENTS
+  IT_SETUP
+  ACCESS
+  TRAINING
+  INTRODUCTION
+  KNOWLEDGE
+}
+
+enum OnboardingTaskStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+  SKIPPED
+}
+
+enum AutomationTrigger {
+  ABSENT_DAYS
+  LATE_ARRIVAL
+  BIRTHDAY
+  WORK_ANNIVERSARY
+  CONTRACT_ENDING
+  LEAVE_APPROVED
+  LEAVE_REJECTED
+  KPI_BELOW_TARGET
+  PAYROLL_PROCESSED
+  NEW_EMPLOYEE
+  EMPLOYEE_EXIT
+  PROBATION_END
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum NotificationType {
+  ATTENDANCE
+  LEAVE
+  PAYROLL
+  TASK
+  ANNOUNCEMENT
+  KPI
+  RECRUITMENT
+  SYSTEM
+}
+
+enum NotifChannel {
+  IN_APP
+  EMAIL
+  SMS
+  TELEGRAM
+  PUSH
+}
+
+enum NotifStatus {
+  PENDING
+  SENT
+  FAILED
+  READ
+}
+
+// ─── Security & Compliance ────────────────────────────────────────────────────
+
+// ─── E-Signature ─────────────────────────────────────────────────────────────
+
+model EsignDocument {
+  id             String           @id @default(cuid())
+  tenantId       String
+  tenant         Tenant           @relation(fields: [tenantId], references: [id])
+  createdById    String
+  createdBy      User             @relation("CreatedDocuments", fields: [createdById], references: [id])
+  title          String
+  type           String
+  content        String           @db.Text
+  status         String           @default("DRAFT")
+  documentHash   String?
+  dueDate        DateTime?
+  completedAt    DateTime?
+  signatories    EsignSignatory[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([tenantId, status])
+}
+
+model EsignSignatory {
+  id             String        @id @default(cuid())
+  documentId     String
+  document       EsignDocument @relation(fields: [documentId], references: [id])
+  userId         String
+  user           User          @relation("UserSignatories", fields: [userId], references: [id])
+  order          Int           @default(0)
+  status         String        @default("PENDING")
+  signedAt       DateTime?
+  signatureData  String?       @db.Text
+  signatureHash  String?
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime      @default(now())
+}
+
+model EsignTemplate {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  name        String
+  type        String
+  content     String   @db.Text
+  variables   Json     @default("[]")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ─── Custom Workflows ─────────────────────────────────────────────────────────
+
+model CustomWorkflow {
+  id            String             @id @default(cuid())
+  tenantId      String
+  tenant        Tenant             @relation(fields: [tenantId], references: [id])
+  createdById   String
+  createdBy     User               @relation("CreatedWorkflows", fields: [createdById], references: [id])
+  name          String
+  description   String?
+  trigger       String
+  status        String             @default("DRAFT")
+  steps         WorkflowStep[]
+  instances     WorkflowInstance[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([tenantId])
+}
+
+model WorkflowStep {
+  id           String         @id @default(cuid())
+  workflowId   String
+  workflow     CustomWorkflow @relation(fields: [workflowId], references: [id])
+  type         String
+  name         String
+  order        Int
+  config       Json           @default("{}")
+  trueStepId   String?
+  falseStepId  String?
+  nextStepId   String?
+  createdAt    DateTime       @default(now())
+}
+
+model WorkflowInstance {
+  id              String         @id @default(cuid())
+  tenantId        String
+  tenant          Tenant         @relation(fields: [tenantId], references: [id])
+  workflowId      String
+  workflow        CustomWorkflow @relation(fields: [workflowId], references: [id])
+  triggeredById   String
+  triggeredBy     User           @relation("TriggeredInstances", fields: [triggeredById], references: [id])
+  currentStepId   String?
+  status          String         @default("RUNNING")
+  data            Json           @default("{}")
+  completedAt     DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+// =============================================================================
+// SMART SCHOOL — Hikvision Face Recognition Attendance
+// =============================================================================
+
+model School {
+  id            String          @id @default(cuid())
+  name          String
+  address       String?
+  phone         String?
+  email         String?
+  logo          String?
+  tenantId      String?
+  settings      Json            @default("{}")
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  classes       SchoolClass[]
+  students      SchoolStudent[]
+  cameras       SchoolCamera[]
+  attendances   SchoolAttendance[]
+  notifLogs     SchoolNotifLog[]
+  journals      SchoolJournal[]
+
+  @@map("schools")
+}
+
+model SchoolClass {
+  id          String           @id @default(cuid())
+  schoolId    String
+  school      School           @relation(fields: [schoolId], references: [id])
+  name        String
+  grade       Int
+  teacherName String?
+  students    SchoolStudent[]
+  attendances SchoolAttendance[]
+  journals    SchoolJournal[]
+  createdAt   DateTime         @default(now())
+
+  @@map("school_classes")
+}
+
+// ─── School Journal ───────────────────────────────────────────────────────────
+
+model SchoolJournal {
+  id        String         @id @default(cuid())
+  schoolId  String
+  school    School         @relation(fields: [schoolId], references: [id])
+  classId   String
+  class     SchoolClass    @relation(fields: [classId], references: [id])
+  subject   String
+  period    String
+  grades    JournalGrade[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@unique([schoolId, classId, subject, period])
+  @@map("school_journals")
+}
+
+model JournalGrade {
+  id        String        @id @default(cuid())
+  journalId String
+  journal   SchoolJournal @relation(fields: [journalId], references: [id])
+  studentId String
+  student   SchoolStudent @relation(fields: [studentId], references: [id])
+  date      DateTime
+  grade     Int?
+  isAbsent  Boolean       @default(false)
+  note      String?
+  createdAt DateTime      @default(now())
+
+  @@unique([journalId, studentId, date])
+  @@map("journal_grades")
+}
+
+// =============================================================================
+// KINDERGARTEN CLOUD
+// =============================================================================
+
+model Kindergarten {
+  id          String             @id @default(cuid())
+  name        String
+  address     String?
+  phone       String?
+  logo        String?
+  tenantId    String?
+  settings    Json               @default("{}")
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  groups      KinderGroup[]
+  children    KinderChild[]
+  cameras     KinderCamera[]
+  attendance  KinderAttendance[]
+  pickupLogs  PickupLog[]
+  menus       KinderMenu[]
+
+  @@map("kindergartens")
+}
+
+model KinderGroup {
+  id             String             @id @default(cuid())
+  kindergartenId String
+  kindergarten   Kindergarten       @relation(fields: [kindergartenId], references: [id])
+  name           String
+  ageMin         Int
+  ageMax         Int
+  capacity       Int                @default(20)
+  room           String?
+  teacherName    String?
+  children       KinderChild[]
+  attendance     KinderAttendance[]
+  createdAt      DateTime           @default(now())
+
+  @@map("kinder_groups")
+}
+
+model KinderChild {
+  id             String             @id @default(cuid())
+  kindergartenId String
+  kindergarten   Kindergarten       @relation(fields: [kindergartenId], references: [id])
+  groupId        String
+  group          KinderGroup        @relation(fields: [groupId], references: [id])
+  childCode      String
+  firstName      String
+  lastName       String
+  birthDate      DateTime?
+  gender         String             @default("MALE")
+  photo          String?
+  faceEmbedding  String?            @db.Text
+  allergies      String[]
+  status         String             @default("ACTIVE")
+  parents        KinderParent[]
+  pickupPersons  PickupPerson[]
+  attendance     KinderAttendance[]
+  pickupLogs     PickupLog[]
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@unique([kindergartenId, childCode])
+  @@map("kinder_children")
+}
+
+model KinderParent {
+  id             String      @id @default(cuid())
+  childId        String
+  child          KinderChild @relation(fields: [childId], references: [id])
+  name           String
+  phone          String
+  telegramChatId String?
+  relation       String      @default("PARENT")
+  isPrimary      Boolean     @default(false)
+  receiveAlerts  Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+
+  @@map("kinder_parents")
+}
+
+model PickupPerson {
+  id             String      @id @default(cuid())
+  childId        String
+  child          KinderChild @relation(fields: [childId], references: [id])
+  name           String
+  relation       String
+  phone          String
+  telegramChatId String?
+  faceRegistered Boolean     @default(false)
+  faceEmbedding  String?     @db.Text
+  authorized     Boolean     @default(true)
+  pickupLogs     PickupLog[]
+  addedAt        DateTime    @default(now())
+
+  @@map("pickup_persons")
+}
+
+model KinderCamera {
+  id             String       @id @default(cuid())
+  kindergartenId String
+  kindergarten   Kindergarten @relation(fields: [kindergartenId], references: [id])
+  name           String
+  ip             String
+  port           Int          @default(80)
+  username       String
+  password       String
+  location       String       @default("ENTRANCE")
+  isOnline       Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+
+  @@map("kinder_cameras")
+}
+
+model KinderAttendance {
+  id             String       @id @default(cuid())
+  kindergartenId String
+  kindergarten   Kindergarten @relation(fields: [kindergartenId], references: [id])
+  childId        String
+  child          KinderChild  @relation(fields: [childId], references: [id])
+  groupId        String
+  group          KinderGroup  @relation(fields: [groupId], references: [id])
+  date           DateTime
+  arrivalTime    DateTime?
+  arrivalPhoto   String?
+  departureTime  DateTime?
+  departurePhoto String?
+  pickedUpBy     String?
+  status         String       @default("ABSENT")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([childId, date])
+  @@index([kindergartenId, date])
+  @@map("kinder_attendance")
+}
+
+model PickupLog {
+  id             String        @id @default(cuid())
+  kindergartenId String
+  kindergarten   Kindergarten  @relation(fields: [kindergartenId], references: [id])
+  childId        String
+  child          KinderChild   @relation(fields: [childId], references: [id])
+  pickupPersonId String?
+  pickupPerson   PickupPerson? @relation(fields: [pickupPersonId], references: [id])
+  timestamp      DateTime      @default(now())
+  faceConfidence Float?
+  isAuthorized   Boolean       @default(false)
+  photo          String?
+  alertSent      Boolean       @default(false)
+  note           String?
+
+  @@index([kindergartenId, timestamp])
+  @@map("pickup_logs")
+}
+
+model KinderMenu {
+  id             String       @id @default(cuid())
+  kindergartenId String
+  kindergarten   Kindergarten @relation(fields: [kindergartenId], references: [id])
+  date           DateTime
+  breakfast      String?
+  lunch          String?
+  snack          String?
+  dinner         String?
+  createdAt      DateTime     @default(now())
+
+  @@unique([kindergartenId, date])
+  @@map("kinder_menus")
+}
+
+// =============================================================================
+// BILLING
+// =============================================================================
+
+model BillingAccount {
+  id                 String    @id @default(cuid())
+  tenantId           String    @unique
+  plan               String    @default("STARTER")
+  clouds             String[]
+  status             String    @default("ACTIVE")
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelAt           DateTime?
+  paymentMethod      String?
+  paymentLast4       String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  invoices           Invoice[]
+
+  @@map("billing_accounts")
+}
+
+model Invoice {
+  id               String         @id @default(cuid())
+  billingAccountId String
+  billingAccount   BillingAccount @relation(fields: [billingAccountId], references: [id])
+  period           String
+  amount           Decimal        @db.Decimal(15, 2)
+  currency         String         @default("UZS")
+  status           String         @default("PENDING")
+  dueDate          DateTime
+  paidAt           DateTime?
+  pdfUrl           String?
+  items            Json           @default("[]")
+  createdAt        DateTime       @default(now())
+
+  @@index([billingAccountId])
+  @@map("invoices")
+}
+
+model SchoolStudent {
+  id            String            @id @default(cuid())
+  schoolId      String
+  school        School            @relation(fields: [schoolId], references: [id])
+  classId       String
+  class         SchoolClass       @relation(fields: [classId], references: [id])
+  studentCode   String
+  firstName     String
+  lastName      String
+  birthDate     DateTime?
+  gender        String            @default("MALE")
+  photo         String?
+  faceEmbedding String?           @db.Text
+  status        String            @default("ACTIVE")
+  parents       SchoolParent[]
+  attendances   SchoolAttendance[]
+  grades        JournalGrade[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@unique([schoolId, studentCode])
+  @@map("school_students")
+}
+
+model SchoolParent {
+  id            String         @id @default(cuid())
+  studentId     String
+  student       SchoolStudent  @relation(fields: [studentId], references: [id])
+  name          String
+  phone         String
+  telegramChatId String?
+  relation      String         @default("PARENT")
+  receivesTelegram Boolean     @default(true)
+  receivesSms   Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+
+  @@map("school_parents")
+}
+
+model SchoolCamera {
+  id        String   @id @default(cuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id])
+  name      String
+  ip        String
+  port      Int      @default(80)
+  rtspPort  Int      @default(554)
+  username  String
+  password  String
+  rtspPath  String   @default("Streaming/channels/101")
+  location  String   @default("ENTRANCE")
+  isOnline  Boolean  @default(false)
+  lastSeen  DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  attendances SchoolAttendance[]
+
+  @@map("school_cameras")
+}
+
+model SchoolAttendance {
+  id              String         @id @default(cuid())
+  schoolId        String
+  school          School         @relation(fields: [schoolId], references: [id])
+  studentId       String
+  student         SchoolStudent  @relation(fields: [studentId], references: [id])
+  classId         String
+  class           SchoolClass    @relation(fields: [classId], references: [id])
+  cameraId        String?
+  camera          SchoolCamera?  @relation(fields: [cameraId], references: [id])
+  date            DateTime
+  arrivalTime     DateTime?
+  arrivalPhoto    String?
+  departureTime   DateTime?
+  departurePhoto  String?
+  status          String         @default("ABSENT")
+  faceConfidence  Float?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@unique([studentId, date])
+  @@index([schoolId, date])
+  @@map("school_attendance")
+}
+
+model SchoolNotifLog {
+  id          String   @id @default(cuid())
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id])
+  studentId   String
+  parentName  String
+  channel     String
+  eventType   String
+  message     String   @db.Text
+  status      String   @default("SENT")
+  sentAt      DateTime @default(now())
+
+  @@index([schoolId, sentAt])
+  @@map("school_notif_logs")
+}
+
+// =============================================================================
+// ERP — BUXGALTERIYA
+// =============================================================================
+
+model ChartOfAccount {
+  id          String   @id @default(cuid())
+  tenantId    String
+  code        String
+  name        String
+  type        String   // ASSET, LIABILITY, EQUITY, REVENUE, EXPENSE
+  parentCode  String?
+  currency    String   @default("UZS")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  debitLines  JournalLine[] @relation("DebitAccount")
+  creditLines JournalLine[] @relation("CreditAccount")
+
+  @@unique([tenantId, code])
+  @@map("chart_of_accounts")
+}
+
+model JournalEntry {
+  id          String        @id @default(cuid())
+  tenantId    String
+  docNumber   String
+  description String
+  date        DateTime
+  status      String        @default("DRAFT") // DRAFT, POSTED, REVERSED
+  createdById String?
+  createdAt   DateTime      @default(now())
+  lines       JournalLine[]
+
+  @@index([tenantId, date])
+  @@map("journal_entries")
+}
+
+model JournalLine {
+  id          String        @id @default(cuid())
+  entryId     String
+  entry       JournalEntry  @relation(fields: [entryId], references: [id])
+  debitCode   String?
+  debitAcct   ChartOfAccount? @relation("DebitAccount", fields: [debitCode], references: [id])
+  creditCode  String?
+  creditAcct  ChartOfAccount? @relation("CreditAccount", fields: [creditCode], references: [id])
+  amount      Decimal       @db.Decimal(15, 2)
+  description String?
+  createdAt   DateTime      @default(now())
+
+  @@map("journal_lines")
+}
+
+// =============================================================================
+// ERP — OMBORXONA
+// =============================================================================
+
+model Product {
+  id          String           @id @default(cuid())
+  tenantId    String
+  sku         String
+  name        String
+  category    String?
+  description String?
+  unit        String           @default("dona")
+  price       Decimal          @db.Decimal(15, 2)
+  minQty      Int              @default(0)
+  location    String?
+  supplierId  String?
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  stockItems  StockItem[]
+  movements   StockMovement[]
+
+  @@unique([tenantId, sku])
+  @@map("products")
+}
+
+model StockItem {
+  id          String   @id @default(cuid())
+  tenantId    String
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  warehouseId String?
+  qty         Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  @@unique([productId, warehouseId])
+  @@map("stock_items")
+}
+
+model StockMovement {
+  id          String   @id @default(cuid())
+  tenantId    String
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  type        String   // IN, OUT, TRANSFER
+  qty         Int
+  fromLocation String?
+  toLocation  String?
+  docNumber   String?
+  reason      String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@map("stock_movements")
+}
+
+// =============================================================================
+// ERP — SAVDO (CRM)
+// =============================================================================
+
+model Client {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  type        String   @default("COMPANY") // COMPANY, INDIVIDUAL
+  contactName String?
+  phone       String?
+  email       String?
+  address     String?
+  status      String   @default("ACTIVE") // ACTIVE, VIP, INACTIVE
+  source      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  deals       Deal[]
+
+  @@index([tenantId])
+  @@map("clients")
+}
+
+model Deal {
+  id          String         @id @default(cuid())
+  tenantId    String
+  clientId    String
+  client      Client         @relation(fields: [clientId], references: [id])
+  title       String
+  value       Decimal        @db.Decimal(15, 2)
+  stage       String         @default("LEAD") // LEAD, PROPOSAL, NEGOTIATION, CLOSED_WON, CLOSED_LOST
+  probability Int            @default(0)
+  closeDate   DateTime?
+  ownerId     String?
+  notes       String?
+  activities  DealActivity[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([tenantId, stage])
+  @@map("deals")
+}
+
+model DealActivity {
+  id        String   @id @default(cuid())
+  dealId    String
+  deal      Deal     @relation(fields: [dealId], references: [id])
+  type      String   // CALL, EMAIL, MEETING, NOTE
+  text      String
+  createdAt DateTime @default(now())
+
+  @@map("deal_activities")
+}
+
+// =============================================================================
+// FRANCHISE HR
+// =============================================================================
+
+model FranchisePolicy {
+  id          String   @id @default(cuid())
+  tenantId    String   // franchisor tenant
+  name        String
+  description String   @db.Text
+  scope       String   @default("ALL")
+  mandatory   Boolean  @default(false)
+  content     Json     @default("{}")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("franchise_policies")
+}
+
+model FranchiseBranch {
+  id              String   @id @default(cuid())
+  franchisorId    String   // parent tenant
+  franchiseeTenantId String? // child tenant
+  name            String
+  city            String?
+  managerName     String?
+  managerEmail    String?
+  compliance      Int      @default(0)
+  status          String   @default("GOOD")
+  openIssues      Int      @default(0)
+  settings        Json     @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([franchisorId])
+  @@map("franchise_branches")
+}
+
+// =============================================================================
+// MEHNAT BIRJASI (LABOR EXCHANGE)
+// =============================================================================
+
+model LaborPost {
+  id          String   @id @default(cuid())
+  tenantId    String   // posting company
+  title       String
+  skills      String[]
+  duration    String
+  rate        Decimal  @db.Decimal(15, 2)
+  rateType    String   @default("kunlik") // kunlik, oylik, loyiha
+  workersNeeded Int    @default(1)
+  urgency     String   @default("NORMAL") // URGENT, NORMAL
+  location    String?
+  description String?
+  status      String   @default("ACTIVE") // ACTIVE, FILLED, CLOSED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  applications LaborApplication[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("labor_posts")
+}
+
+model LaborApplication {
+  id          String     @id @default(cuid())
+  postId      String
+  post        LaborPost  @relation(fields: [postId], references: [id])
+  fromTenantId String   // applying company
+  employeeId  String?   // the worker being offered
+  proposedRate Decimal? @db.Decimal(15, 2)
+  message     String?
+  status      String    @default("PENDING") // PENDING, ACCEPTED, REJECTED
+  createdAt   DateTime  @default(now())
+
+  @@index([postId])
+  @@map("labor_applications")
+}
+
+model LaborContract {
+  id            String   @id @default(cuid())
+  postId        String?
+  hiringTenantId String
+  offeringTenantId String
+  employeeId    String
+  startDate     DateTime
+  endDate       DateTime?
+  rate          Decimal  @db.Decimal(15, 2)
+  rateType      String
+  status        String   @default("ACTIVE") // ACTIVE, COMPLETED, CANCELLED
+  rating        Int?
+  review        String?
+  createdAt     DateTime @default(now())
+
+  @@index([hiringTenantId])
+  @@index([offeringTenantId])
+  @@map("labor_contracts")
+}

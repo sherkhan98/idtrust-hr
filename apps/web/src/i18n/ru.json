@@ -1,0 +1,58 @@
+{
+  "app": { "name": "StaffFlow HR", "tagline": "Современная HR-система для Узбекистана" },
+  "nav": {
+    "dashboard": "Главная",
+    "employees": "Сотрудники",
+    "organization": "Организация",
+    "attendance": "Посещаемость",
+    "leave": "Отпуска",
+    "payroll": "Зарплата",
+    "kpi": "КПЭ",
+    "recruitment": "Рекрутинг",
+    "tasks": "Задачи",
+    "documents": "Документы",
+    "training": "Обучение",
+    "social": "Лента",
+    "helpdesk": "Хелпдеск",
+    "analytics": "Аналитика",
+    "settings": "Настройки"
+  },
+  "common": {
+    "search": "Поиск...",
+    "add": "Добавить",
+    "edit": "Редактировать",
+    "delete": "Удалить",
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "confirm": "Подтвердить",
+    "loading": "Загрузка...",
+    "noData": "Данные не найдены",
+    "export": "Экспорт",
+    "import": "Импорт",
+    "filter": "Фильтр",
+    "total": "Всего",
+    "active": "Активный",
+    "inactive": "Неактивный",
+    "status": "Статус",
+    "actions": "Действия",
+    "date": "Дата",
+    "name": "Имя",
+    "email": "Email",
+    "phone": "Телефон"
+  },
+  "employee": {
+    "title": "Сотрудники",
+    "add": "Добавить сотрудника",
+    "profile": "Профиль",
+    "department": "Отдел",
+    "position": "Должность",
+    "hireDate": "Дата приёма",
+    "salary": "Зарплата",
+    "status": {
+      "ACTIVE": "Активный",
+      "ON_LEAVE": "В отпуске",
+      "RESIGNED": "Уволился",
+      "TERMINATED": "Уволен"
+    }
+  }
+}
